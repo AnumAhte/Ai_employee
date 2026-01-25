@@ -1,0 +1,17 @@
+# Obsidian
+.obsidian/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
