@@ -13,12 +13,18 @@ Usage:
 
 import imaplib
 import email
+import email.message
 from email.header import decode_header
 from pathlib import Path
 from datetime import datetime
 import re
 import time
 import os
+import sys
+
+# Fix Windows console encoding for Unicode (emojis, accented chars, etc.)
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 try:
     from dotenv import load_dotenv
@@ -43,6 +49,28 @@ WATCHER_LOG = LOGS / "gmail_watcher.log"
 IMAP_HOST = "imap.gmail.com"
 IMAP_PORT = 993
 BODY_SNIPPET_LENGTH = 500
+
+# ---------------------------------------------------------------------------
+# Intelligent Email Filter — edit these two lists to customise behaviour
+# ---------------------------------------------------------------------------
+# Keywords are matched case-insensitively against the email Subject line.
+# Add/remove strings freely; one match is enough to pass the filter.
+_raw_keywords = os.getenv(
+    "FILTER_KEYWORDS", "TASK,CLIENT,INVOICE"
+)
+FILTER_KEYWORDS: list[str] = [k.strip().lower() for k in _raw_keywords.split(",") if k.strip()]
+
+# Sender email addresses (full or partial) that always pass the filter.
+# Defaults to the monitored Gmail account itself so self-sent emails are
+# always processed.
+_raw_senders = os.getenv(
+    "FILTER_SENDERS", GMAIL_ADDRESS
+)
+FILTER_SENDERS: list[str] = [s.strip().lower() for s in _raw_senders.split(",") if s.strip()]
+
+# Log files for filter decisions
+PROCESSED_LOG = LOGS / "email_processed.log"
+IGNORED_LOG   = LOGS / "email_ignored.log"
 
 # ---------------------------------------------------------------------------
 # Suggested-action keyword map
@@ -74,6 +102,46 @@ def log(action: str, details: str) -> None:
     WATCHER_LOG.parent.mkdir(parents=True, exist_ok=True)
     with open(WATCHER_LOG, "a", encoding="utf-8") as fh:
         fh.write(entry + "\n")
+
+
+def log_processed(sender: str, subject: str, reason: str) -> None:
+    """Append one line to email_processed.log."""
+    LOGS.mkdir(parents=True, exist_ok=True)
+    entry = f"[{_ts()}] [PROCESSED] reason={reason!r} | from={sender!r} | subject={subject!r}\n"
+    with open(PROCESSED_LOG, "a", encoding="utf-8") as fh:
+        fh.write(entry)
+
+
+def log_ignored(sender: str, subject: str, reason: str) -> None:
+    """Append one line to email_ignored.log."""
+    LOGS.mkdir(parents=True, exist_ok=True)
+    entry = f"[{_ts()}] [IGNORED]   reason={reason!r} | from={sender!r} | subject={subject!r}\n"
+    with open(IGNORED_LOG, "a", encoding="utf-8") as fh:
+        fh.write(entry)
+
+
+# ---------------------------------------------------------------------------
+# Intelligent filter
+# ---------------------------------------------------------------------------
+def should_process(sender: str, subject: str) -> tuple[bool, str]:
+    """Return (True, reason) if the email should become a task, else (False, reason).
+
+    An email passes when ANY of the following are true:
+      1. The subject contains one of FILTER_KEYWORDS (case-insensitive).
+      2. The sender address contains one of FILTER_SENDERS (case-insensitive).
+    """
+    subject_lower = subject.lower()
+    sender_lower  = sender.lower()
+
+    for kw in FILTER_KEYWORDS:
+        if kw in subject_lower:
+            return True, f"subject keyword '{kw}'"
+
+    for addr in FILTER_SENDERS:
+        if addr and addr in sender_lower:
+            return True, f"approved sender '{addr}'"
+
+    return False, "no keyword or approved sender matched"
 
 
 # ---------------------------------------------------------------------------
@@ -273,8 +341,39 @@ def check_unread(conn: imaplib.IMAP4_SSL) -> int:
             date_str = decode_mime_header(msg.get("Date"))
             body = extract_body(msg)
 
+            # -----------------------------------------------------------------
+            # Intelligent filter: skip emails that don't match any rule
+            # -----------------------------------------------------------------
+            passes, reason = should_process(sender, subject)
+            if not passes:
+                log("FILTERED_OUT", f"Ignored — {reason} | Subject: {subject}")
+                log_ignored(sender, subject, reason)
+                # Mark as read so it isn't re-evaluated on the next cycle
+                conn.store(eid, "+FLAGS", "\\Seen")
+                continue
+
+            # -----------------------------------------------------------------
+            # Check for duplicate task file before creating
+            # -----------------------------------------------------------------
+            now_tag = datetime.now().strftime("%Y-%m-%d")
+            safe_subj = sanitize_filename(subject) or "no_subject"
+            candidate = INBOX / f"email_{now_tag}_{safe_subj}.md"
+            # Also check in_progress and done to avoid re-creating moved tasks
+            in_progress = VAULT_PATH / "in_progress"
+            done = VAULT_PATH / "done"
+            already_exists = (
+                candidate.exists()
+                or (in_progress / candidate.name).exists()
+                or (done / candidate.name).exists()
+            )
+            if already_exists:
+                log("DUPLICATE", f"Task file already exists, skipping: {candidate.name}")
+                conn.store(eid, "+FLAGS", "\\Seen")
+                continue
+
             filepath = create_task_file(sender, subject, date_str, body)
-            log("TASK_CREATED", f"File: {filepath.name}")
+            log("TASK_CREATED", f"File: {filepath.name} | Reason: {reason}")
+            log_processed(sender, subject, reason)
 
             # Mark as read
             conn.store(eid, "+FLAGS", "\\Seen")

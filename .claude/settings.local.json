@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": [
+    "email-sender"
+  ],
+  "enableAllProjectMcpServers": true
+}

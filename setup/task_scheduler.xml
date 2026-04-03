@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+
+  <RegistrationInfo>
+    <Description>AI Employee - Runs email_watcher.py every 30 minutes to process inbox and trigger automations.</Description>
+    <Author>AI Employee System</Author>
+    <Date>2026-03-06T00:00:00</Date>
+    <URI>\AIEmployee\EmailWatcher</URI>
+  </RegistrationInfo>
+
+  <Triggers>
+    <TimeTrigger>
+      <Repetition>
+        <Interval>PT30M</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+      <StartBoundary>2026-03-06T00:00:00</StartBoundary>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
+  </Triggers>
+
+  <Principals>
+    <Principal id="Author">
+      <!-- Runs as the logged-in user. Change to a service account if needed. -->
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT10M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+
+  <Actions Context="Author">
+    <Exec>
+      <Command>C:\Users\CBM\AppData\Local\Programs\Python\Python313\python.exe</Command>
+      <Arguments>watchers\email_watcher.py</Arguments>
+      <WorkingDirectory>C:\Users\CBM\Desktop\AI_Employee_Vault\AI_Employee_Vault</WorkingDirectory>
+    </Exec>
+  </Actions>
+
+</Task>

@@ -15,3 +15,22 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# -------------------------------------------------------
+# Private runtime data — never commit these folders
+# -------------------------------------------------------
+# Email task files (contain private email content)
+inbox/
+in_progress/
+done/
+# Approval queue (may contain email drafts)
+pending_approval/
+approved/
+rejected/
+# Runtime logs (contain email metadata)
+logs/
+# Recovery/action files (may contain Odoo data)
+needs_action/
+# Plans and reports (internal operational data)
+plans/
+reports/

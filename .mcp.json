@@ -1,0 +1,35 @@
+{
+  "mcpServers": {
+    "email-sender": {
+      "command": "python",
+      "args": ["mcp_servers/email_sender.py"],
+      "env": {}
+    },
+    "linkedin-poster": {
+      "command": "python",
+      "args": ["mcp_servers/linkedin_poster.py"],
+      "env": {}
+    },
+    "odoo-accounting": {
+      "command": "python",
+      "args": ["mcp_servers/odoo_accounting.py"],
+      "env": {
+        "ODOO_URL": "http://localhost:8069",
+        "ODOO_DB": "mycompany",
+        "ODOO_USERNAME": "admin@example.com",
+        "ODOO_PASSWORD": "admin",
+        "ODOO_DRY_RUN": "false"
+      }
+    },
+    "meta-social": {
+      "command": "python",
+      "args": ["mcp_servers/meta_social.py"],
+      "env": {}
+    },
+    "twitter-poster": {
+      "command": "python",
+      "args": ["mcp_servers/twitter_poster.py"],
+      "env": {}
+    }
+  }
+}
